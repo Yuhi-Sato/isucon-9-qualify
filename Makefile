@@ -4,9 +4,9 @@ include /home/isucon/env.sh
 
 # 問題によって変わる変数
 USER:=isucon
-BIN_NAME:=app
-BUILD_DIR:=/home/isucon/private_isu/webapp/golang
-SERVICE_NAME:=isu-go
+BIN_NAME:=isucari
+BUILD_DIR:=/home/isucon/isucari/webapp/go
+SERVICE_NAME:=isucari.golang.service
 
 DB_PATH:=/etc/mysql
 NGINX_PATH:=/etc/nginx
