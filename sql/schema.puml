@@ -1,83 +1,84 @@
 @startuml
-
 entity configs {
-  * name : VARCHAR(191) <<PK>>
+  *name : VARCHAR(191)
   --
   val : VARCHAR(255)
 }
 
 entity users {
-  * id : bigint <<PK>>
+  *id : BIGINT
   --
-  account_name : varchar(128) <<UNIQUE>>
-  hashed_password : varbinary(191)
-  address : varchar(191)
-  num_sell_items : int unsigned
-  last_bump : datetime
-  created_at : datetime
+  account_name : VARCHAR(128)
+  hashed_password : VARBINARY(191)
+  address : VARCHAR(191)
+  num_sell_items : INT UNSIGNED
+  last_bump : DATETIME
+  created_at : DATETIME
 }
 
 entity items {
-  * id : bigint <<PK>>
+  *id : BIGINT
   --
-  seller_id : bigint
-  buyer_id : bigint
-  status : enum('on_sale', 'trading', 'sold_out', 'stop', 'cancel')
-  name : varchar(191)
-  price : int unsigned
-  description : text
-  image_name : varchar(191)
-  category_id : int unsigned
-  created_at : datetime
-  updated_at : datetime
-  --
-  INDEX idx_category_id (category_id)
+  seller_id : BIGINT
+  buyer_id : BIGINT
+  status : ENUM('on_sale', 'trading', 'sold_out', 'stop', 'cancel')
+  name : VARCHAR(191)
+  price : INT UNSIGNED
+  description : TEXT
+  image_name : VARCHAR(191)
+  category_id : INT UNSIGNED
+  created_at : DATETIME
+  updated_at : DATETIME
 }
 
 entity transaction_evidences {
-  * id : bigint <<PK>>
+  *id : BIGINT
   --
-  seller_id : bigint
-  buyer_id : bigint
-  status : enum('wait_shipping', 'wait_done', 'done')
-  item_id : bigint <<UNIQUE>>
-  item_name : varchar(191)
-  item_price : int unsigned
-  item_description : text
-  item_category_id : int unsigned
-  item_root_category_id : int unsigned
-  created_at : datetime
-  updated_at : datetime
+  seller_id : BIGINT
+  buyer_id : BIGINT
+  status : ENUM('wait_shipping', 'wait_done', 'done')
+  item_id : BIGINT
+  item_name : VARCHAR(191)
+  item_price : INT UNSIGNED
+  item_description : TEXT
+  item_category_id : INT UNSIGNED
+  item_root_category_id : INT UNSIGNED
+  created_at : DATETIME
+  updated_at : DATETIME
 }
 
 entity shippings {
-  * transaction_evidence_id : bigint <<PK>>
+  *transaction_evidence_id : BIGINT
   --
-  status : enum('initial', 'wait_pickup', 'shipping', 'done')
-  item_name : varchar(191)
-  item_id : bigint
-  reserve_id : varchar(191)
-  reserve_time : bigint
-  to_address : varchar(191)
-  to_name : varchar(191)
-  from_address : varchar(191)
-  from_name : varchar(191)
-  img_binary : mediumblob
-  created_at : datetime
-  updated_at : datetime
+  status : ENUM('initial', 'wait_pickup', 'shipping', 'done')
+  item_name : VARCHAR(191)
+  item_id : BIGINT
+  reserve_id : VARCHAR(191)
+  reserve_time : BIGINT
+  to_address : VARCHAR(191)
+  to_name : VARCHAR(191)
+  from_address : VARCHAR(191)
+  from_name : VARCHAR(191)
+  img_binary : MEDIUMBLOB
+  created_at : DATETIME
+  updated_at : DATETIME
 }
 
 entity categories {
-  * id : int unsigned <<PK>>
+  *id : INT UNSIGNED
   --
-  parent_id : int unsigned
-  category_name : varchar(191)
+  parent_id : INT UNSIGNED
+  category_name : VARCHAR(191)
 }
 
 users ||--o{ items : "seller_id"
+users ||--o{ items : "buyer_id"
 items ||--o{ transaction_evidences : "item_id"
-transaction_evidences ||--|| shippings : "transaction_evidence_id"
+items ||--o{ shippings : "item_id"
+transaction_evidences ||--o{ shippings : "transaction_evidence_id"
 categories ||--o{ items : "category_id"
 categories ||--o{ transaction_evidences : "item_category_id"
+categories ||--o{ transaction_evidences : "item_root_category_id"
+categories ||--o{ categories : "parent_id"
 
 @enduml
