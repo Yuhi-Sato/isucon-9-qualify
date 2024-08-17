@@ -1,0 +1,83 @@
+@startuml
+
+entity configs {
+  * name : VARCHAR(191) <<PK>>
+  --
+  val : VARCHAR(255)
+}
+
+entity users {
+  * id : bigint <<PK>>
+  --
+  account_name : varchar(128) <<UNIQUE>>
+  hashed_password : varbinary(191)
+  address : varchar(191)
+  num_sell_items : int unsigned
+  last_bump : datetime
+  created_at : datetime
+}
+
+entity items {
+  * id : bigint <<PK>>
+  --
+  seller_id : bigint
+  buyer_id : bigint
+  status : enum('on_sale', 'trading', 'sold_out', 'stop', 'cancel')
+  name : varchar(191)
+  price : int unsigned
+  description : text
+  image_name : varchar(191)
+  category_id : int unsigned
+  created_at : datetime
+  updated_at : datetime
+  --
+  INDEX idx_category_id (category_id)
+}
+
+entity transaction_evidences {
+  * id : bigint <<PK>>
+  --
+  seller_id : bigint
+  buyer_id : bigint
+  status : enum('wait_shipping', 'wait_done', 'done')
+  item_id : bigint <<UNIQUE>>
+  item_name : varchar(191)
+  item_price : int unsigned
+  item_description : text
+  item_category_id : int unsigned
+  item_root_category_id : int unsigned
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity shippings {
+  * transaction_evidence_id : bigint <<PK>>
+  --
+  status : enum('initial', 'wait_pickup', 'shipping', 'done')
+  item_name : varchar(191)
+  item_id : bigint
+  reserve_id : varchar(191)
+  reserve_time : bigint
+  to_address : varchar(191)
+  to_name : varchar(191)
+  from_address : varchar(191)
+  from_name : varchar(191)
+  img_binary : mediumblob
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity categories {
+  * id : int unsigned <<PK>>
+  --
+  parent_id : int unsigned
+  category_name : varchar(191)
+}
+
+users ||--o{ items : "seller_id"
+items ||--o{ transaction_evidences : "item_id"
+transaction_evidences ||--|| shippings : "transaction_evidence_id"
+categories ||--o{ items : "category_id"
+categories ||--o{ transaction_evidences : "item_category_id"
+
+@enduml
