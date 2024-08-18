@@ -1719,7 +1719,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shipping := Shipping{}
-	err = tx.Get(&shipping, "SELECT `status` FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE", transactionEvidence.ID)
+	err = tx.Get(&shipping, "SELECT `reserve_id` FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE", transactionEvidence.ID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "shippings not found")
 		tx.Rollback()
