@@ -1703,7 +1703,7 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shipping := Shipping{}
-	err = tx.Get(&shipping, "SELECT `reserve_id` FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE", transactionEvidence.ID)
+	err = tx.Get(&shipping, "SELECT `status` FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE", transactionEvidence.ID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "shippings not found")
 		tx.Rollback()
@@ -1716,25 +1716,25 @@ func postShipDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-		ReserveID: shipping.ReserveID,
-	})
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-		tx.Rollback()
+	// ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
+	// 	ReserveID: shipping.ReserveID,
+	// })
+	// if err != nil {
+	// 	log.Print(err)
+	// 	outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
+	// 	tx.Rollback()
 
-		return
-	}
+	// 	return
+	// }
 
-	if !(ssr.Status == ShippingsStatusShipping || ssr.Status == ShippingsStatusDone) {
-		outputErrorMsg(w, http.StatusForbidden, "shipment service側で配送中か配送完了になっていません")
-		tx.Rollback()
-		return
-	}
+	// if !(shipping.Status == ShippingsStatusShipping || shipping.Status == ShippingsStatusDone) {
+	// 	outputErrorMsg(w, http.StatusForbidden, "shipment service側で配送中か配送完了になっていません")
+	// 	tx.Rollback()
+	// 	return
+	// }
 
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
-		ssr.Status,
+		shipping.Status,
 		time.Now(),
 		transactionEvidence.ID,
 	)
@@ -1867,11 +1867,11 @@ func postComplete(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
-	if !(shipping.Status == ShippingsStatusDone) {
-		outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
-		tx.Rollback()
-		return
-	}
+	// if !(shipping.Status == ShippingsStatusDone) {
+	// 	outputErrorMsg(w, http.StatusBadRequest, "shipment service側で配送完了になっていません")
+	// 	tx.Rollback()
+	// 	return
+	// }
 
 	_, err = tx.Exec("UPDATE `shippings` SET `status` = ?, `updated_at` = ? WHERE `transaction_evidence_id` = ?",
 		ShippingsStatusDone,
