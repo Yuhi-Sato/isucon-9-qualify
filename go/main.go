@@ -508,13 +508,17 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	userSimples := []*UserSimple{}
-	err = dbx.Select(&userSimples, "SELECT * FROM `users`")
+	users := []*User{}
+	err = dbx.Select(&users, "SELECT `id`, `account_name`, `num_sell_items` FROM `users`")
 	if err != nil {
 		log.Print(err)
 	}
-	for _, us := range userSimples {
-		userSimpleCache[us.ID] = us
+	for _, u := range users {
+		userSimpleCache[u.ID] = &UserSimple{
+			ID:           u.ID,
+			AccountName:  u.AccountName,
+			NumSellItems: u.NumSellItems,
+		}
 	}
 
 	res := resInitialize{
@@ -2287,9 +2291,11 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 	userID, err := result.LastInsertId()
 
 	userSimpleMutex.Lock()
-	userSimpleCache[userID].ID = userID
-	userSimpleCache[userID].AccountName = accountName
-	userSimpleCache[userID].NumSellItems = 0
+	userSimpleCache[userID] = &UserSimple{
+		ID:           userID,
+		AccountName:  accountName,
+		NumSellItems: 0,
+	}
 	userSimpleMutex.Unlock()
 
 	if err != nil {
