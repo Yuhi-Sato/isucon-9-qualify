@@ -285,6 +285,8 @@ func main() {
 		log.Fatal(http.ListenAndServe(":6060", nil))
 	}()
 
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1000
+
 	host := os.Getenv("MYSQL_HOST")
 	if host == "" {
 		host = "127.0.0.1"
@@ -311,7 +313,7 @@ func main() {
 	}
 
 	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local&interpolateParams=true",
 		user,
 		password,
 		host,
@@ -324,6 +326,9 @@ func main() {
 		log.Fatalf("failed to connect to DB: %s.", err.Error())
 	}
 	defer dbx.Close()
+
+	dbx.SetMaxOpenConns(1000)
+	dbx.SetMaxIdleConns(1000)
 
 	mux := goji.NewMux()
 
