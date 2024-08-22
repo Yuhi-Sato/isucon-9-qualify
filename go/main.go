@@ -916,6 +916,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				(
 					SELECT 
 						te.id
+						, te.item_id
 						, te.status AS transaction_evidence_status
 						, s.status AS shipping_status
 					FROM transaction_evidences AS te
@@ -937,6 +938,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				(
 					SELECT 
 						te.id
+						, te.item_id
 						, te.status AS transaction_evidence_status
 						, s.status AS shipping_status
 					FROM transaction_evidences AS te
@@ -946,7 +948,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				ON i.id = te_s.item_id
 				WHERE i.buyer_id = ? AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) 
 				
-				ORDER BY i.created_at DESC, i.id DESC 
+				ORDER BY created_at DESC, id DESC 
 				LIMIT ? `,
 			user.ID,
 			time.Unix(createdAt, 0),
@@ -978,6 +980,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				(
 					SELECT 
 						te.id
+						, te.item_id
 						, te.status AS transaction_evidence_status
 						, s.status AS shipping_status
 					FROM transaction_evidences AS te
@@ -991,6 +994,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 				SELECT 
 					i.id
+					, te.item_id
 					, te_s.id AS transaction_evidence_id
 					, te_s.transaction_evidence_status AS transaction_evidence_status
 					, te_s.shipping_status AS shipping_status
@@ -1008,7 +1012,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				ON i.id = te_s.item_id
 				WHERE i.buyer_id = ? 
 				
-				ORDER BY i.created_at DESC, i.id DESC 
+				ORDER BY created_at DESC, id DESC 
 				LIMIT ?
 			`,
 			user.ID,
