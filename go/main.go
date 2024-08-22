@@ -916,6 +916,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				(
 					SELECT 
 						te.id
+						, te.item_id
 						, te.status AS transaction_evidence_status
 						, s.status AS shipping_status
 					FROM transaction_evidences AS te
@@ -937,6 +938,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				(
 					SELECT 
 						te.id
+						, te.item_id
 						, te.status AS transaction_evidence_status
 						, s.status AS shipping_status
 					FROM transaction_evidences AS te
@@ -978,6 +980,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				(
 					SELECT 
 						te.id
+						, te.item_id
 						, te.status AS transaction_evidence_status
 						, s.status AS shipping_status
 					FROM transaction_evidences AS te
@@ -991,6 +994,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 				SELECT 
 					i.id
+					, te.item_id
 					, te_s.id AS transaction_evidence_id
 					, te_s.transaction_evidence_status AS transaction_evidence_status
 					, te_s.shipping_status AS shipping_status
