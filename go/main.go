@@ -104,9 +104,9 @@ type Item struct {
 	CategoryID                int       `json:"category_id" db:"category_id"`
 	CreatedAt                 time.Time `json:"-" db:"created_at"`
 	UpdatedAt                 time.Time `json:"-" db:"updated_at"`
-	TransactionEvidenceID     int64     `db:"transaction_evidence_id"`
-	TransactionEvidenceStatus string    `db:"transaction_evidence_status"`
-	ShippingStatus            string    `db:"shipping_status"`
+	TransactionEvidenceID     sql.NullInt64  `db:"transaction_evidence_id"`
+	TransactionEvidenceStatus sql.NullString `db:"transaction_evidence_status"`
+	ShippingStatus            sql.NullString `db:"shipping_status"`
 }
 
 type ItemSimple struct {
@@ -907,7 +907,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		err := tx.Select(&items,
 			`
 				SELECT 
-					i.id
+					i.*
 					, te_s.id AS transaction_evidence_id
 					, te_s.transaction_evidence_status AS transaction_evidence_status
 					, te_s.shipping_status AS shipping_status
@@ -929,7 +929,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				UNION 
 				
 				SELECT 
-					i.id
+					i.*
 					, te_s.id AS transaction_evidence_id
 					, te_s.transaction_evidence_status AS transaction_evidence_status
 					, te_s.shipping_status AS shipping_status
@@ -971,7 +971,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		err := tx.Select(&items,
 			`
 				SELECT 
-					i.id
+					i.*
 					, te_s.id AS transaction_evidence_id
 					, te_s.transaction_evidence_status AS transaction_evidence_status
 					, te_s.shipping_status AS shipping_status
@@ -993,8 +993,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				UNION 
 
 				SELECT 
-					i.id
-					, te.item_id
+					i.*
 					, te_s.id AS transaction_evidence_id
 					, te_s.transaction_evidence_status AS transaction_evidence_status
 					, te_s.shipping_status AS shipping_status
@@ -1003,6 +1002,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				(
 					SELECT 
 						te.id
+						, te.item_id
 						, te.status AS transaction_evidence_status
 						, s.status AS shipping_status
 					FROM transaction_evidences AS te
@@ -1096,7 +1096,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		// 	return
 		// }
 
-		if item.TransactionEvidenceID > 0 {
+		if item.TransactionEvidenceID.Int64 > 0 {
 			// shipping := Shipping{}
 			// err = tx.Get(&shipping, "SELECT `status` FROM `shippings` WHERE `transaction_evidence_id` = ?", transactionEvidence.ID)
 			// if err == sql.ErrNoRows {
@@ -1111,9 +1111,9 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// 	return
 			// }
 
-			itemDetail.TransactionEvidenceID = item.TransactionEvidenceID
-			itemDetail.TransactionEvidenceStatus = item.TransactionEvidenceStatus
-			itemDetail.ShippingStatus = item.ShippingStatus
+			itemDetail.TransactionEvidenceID = item.TransactionEvidenceID.Int64
+			itemDetail.TransactionEvidenceStatus = item.TransactionEvidenceStatus.String
+			itemDetail.ShippingStatus = item.ShippingStatus.String
 		}
 
 		itemDetails = append(itemDetails, itemDetail)
