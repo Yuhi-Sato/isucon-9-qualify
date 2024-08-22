@@ -93,17 +93,17 @@ type UserSimple struct {
 }
 
 type Item struct {
-	ID                        int64     `json:"id" db:"id"`
-	SellerID                  int64     `json:"seller_id" db:"seller_id"`
-	BuyerID                   int64     `json:"buyer_id" db:"buyer_id"`
-	Status                    string    `json:"status" db:"status"`
-	Name                      string    `json:"name" db:"name"`
-	Price                     int       `json:"price" db:"price"`
-	Description               string    `json:"description" db:"description"`
-	ImageName                 string    `json:"image_name" db:"image_name"`
-	CategoryID                int       `json:"category_id" db:"category_id"`
-	CreatedAt                 time.Time `json:"-" db:"created_at"`
-	UpdatedAt                 time.Time `json:"-" db:"updated_at"`
+	ID                        int64          `json:"id" db:"id"`
+	SellerID                  int64          `json:"seller_id" db:"seller_id"`
+	BuyerID                   int64          `json:"buyer_id" db:"buyer_id"`
+	Status                    string         `json:"status" db:"status"`
+	Name                      string         `json:"name" db:"name"`
+	Price                     int            `json:"price" db:"price"`
+	Description               string         `json:"description" db:"description"`
+	ImageName                 string         `json:"image_name" db:"image_name"`
+	CategoryID                int            `json:"category_id" db:"category_id"`
+	CreatedAt                 time.Time      `json:"-" db:"created_at"`
+	UpdatedAt                 time.Time      `json:"-" db:"updated_at"`
 	TransactionEvidenceID     sql.NullInt64  `db:"transaction_evidence_id"`
 	TransactionEvidenceStatus sql.NullString `db:"transaction_evidence_status"`
 	ShippingStatus            sql.NullString `db:"shipping_status"`
@@ -558,13 +558,28 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ユーザが過去に購入したカテゴリの商品の一覧を返す
+	user, errCode, errMsg := getUser(r)
+	if errMsg != "" {
+		outputErrorMsg(w, errCode, errMsg)
+		return
+	}
+	category := Category{}
+	err = dbx.Select(&category, "SELECT i.`category_id` FROM `users` AS u INNER JOIN `items` AS i on u.`id` = i.`buyer_id` where u.`id` = ? LIMIT 1", user.ID)
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 	items := []Item{}
 	if itemID > 0 && createdAt > 0 {
 		// paging
 		err := dbx.Select(&items,
-			"SELECT * FROM `items` WHERE `status` IN (?,?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id = ? AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
+			category.ID,
 			time.Unix(createdAt, 0),
 			time.Unix(createdAt, 0),
 			itemID,
@@ -578,9 +593,10 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 1st page
 		err := dbx.Select(&items,
-			"SELECT * FROM `items` WHERE `status` IN (?,?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id = ? ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
+			category.ID,
 			ItemsPerPage+1,
 		)
 		if err != nil {
