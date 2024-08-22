@@ -946,7 +946,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				ON i.id = te_s.item_id
 				WHERE i.buyer_id = ? AND (i.created_at < ?  OR (i.created_at <= ? AND i.id < ?)) 
 				
-				ORDER BY i.created_at DESC, i.id DESC 
+				ORDER BY created_at DESC, id DESC 
 				LIMIT ? `,
 			user.ID,
 			time.Unix(createdAt, 0),
@@ -1008,7 +1008,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 				ON i.id = te_s.item_id
 				WHERE i.buyer_id = ? 
 				
-				ORDER BY i.created_at DESC, i.id DESC 
+				ORDER BY created_at DESC, id DESC 
 				LIMIT ?
 			`,
 			user.ID,
