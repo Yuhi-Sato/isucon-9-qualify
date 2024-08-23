@@ -564,8 +564,8 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, errCode, errMsg)
 		return
 	}
-	category := Category{}
-	err = dbx.Get(&category, "SELECT i.`category_id` FROM `users` AS u INNER JOIN `items` AS i on u.`id` = i.`buyer_id` where u.`id` = ? LIMIT 1", user.ID)
+	var categoryID int64
+	err = dbx.Get(&categoryID, "SELECT i.`category_id` FROM `users` AS u INNER JOIN `items` AS i on u.`id` = i.`buyer_id` where u.`id` = ? LIMIT 1", user.ID)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
@@ -579,7 +579,7 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id = ? AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
-			category.ID,
+			categoryID,
 			time.Unix(createdAt, 0),
 			time.Unix(createdAt, 0),
 			itemID,
@@ -596,7 +596,7 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 			"SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id = ? ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
 			ItemStatusOnSale,
 			ItemStatusSoldOut,
-			category.ID,
+			categoryID,
 			ItemsPerPage+1,
 		)
 		if err != nil {
