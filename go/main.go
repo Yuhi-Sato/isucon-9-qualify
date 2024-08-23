@@ -2042,11 +2042,12 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	tx.Commit()
 
 	userSimpleMutex.Lock()
 	userSimpleCache[seller.ID].NumSellItems = seller.NumSellItems + 1
 	userSimpleMutex.Unlock()
+	
+	tx.Commit()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(resSell{ID: itemID})
