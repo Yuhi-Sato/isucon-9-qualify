@@ -565,7 +565,7 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	category := Category{}
-	err = dbx.Select(&category, "SELECT i.`category_id` FROM `users` AS u INNER JOIN `items` AS i on u.`id` = i.`buyer_id` where u.`id` = ? LIMIT 1", user.ID)
+	err = dbx.Get(&category, "SELECT i.`category_id` FROM `users` AS u INNER JOIN `items` AS i on u.`id` = i.`buyer_id` where u.`id` = ? LIMIT 1", user.ID)
 	if err != nil {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
