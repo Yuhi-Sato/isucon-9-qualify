@@ -935,6 +935,49 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	itemIDs := make([]int64, len(items))
+	for _, item := range items {
+		itemIDs = append(itemIDs, item.ID)
+	}
+
+	q, params, err := sqlx.In("SELECT te.`id`, te.`item_id`, te.`status` AS `transaction_evidence_status`, s.`status` AS `shipping_status` FROM `transaction_evidences` AS te LEFT JOIN `shippings` AS s ON te.`id` = s.`transaction_evidence_id` WHERE te.`item_id` IN (?)", itemIDs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	type TransactionEvidenceShipping struct {
+		ID                        int64  `json:"id" db:"id"`
+		ItemID                    int64  `json:"item_id" db:"item_id"`
+		TransactionEvidenceStatus string `json:"transaction_evidence_status" db:"transaction_evidence_status"`
+		ShippingStatus            string `json:"shipping_status" db:"shipping_status"`
+	}
+
+	tes := []TransactionEvidenceShipping{}
+	err = tx.Select(&tes, q, params...)
+	if err != nil && err != sql.ErrNoRows {
+		// It's able to ignore ErrNoRows
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "shipping not found")
+		tx.Rollback()
+		return
+	}
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return
+	}
+
+	tesMap := map[int64]TransactionEvidenceShipping{}
+	for _, te := range tes {
+		tesMap[te.ItemID] = te
+	}
+
 	itemDetails := []ItemDetail{}
 	for _, item := range items {
 		seller, err := getUserSimpleByID(item.SellerID)
@@ -980,44 +1023,42 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			itemDetail.Buyer = &buyer
 		}
 
-		transactionEvidence := TransactionEvidence{}
-		err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
-		if err != nil && err != sql.ErrNoRows {
-			// It's able to ignore ErrNoRows
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
-			return
+		tesMapItem := tesMap[item.ID]
+		if tesMapItem.ID > 0 {
+			itemDetail.TransactionEvidenceID = tesMapItem.ID
+			itemDetail.TransactionEvidenceStatus = tesMapItem.TransactionEvidenceStatus
+			itemDetail.ShippingStatus = tesMapItem.ShippingStatus
 		}
 
-		if transactionEvidence.ID > 0 {
-			shipping := Shipping{}
-			err = tx.Get(&shipping, "SELECT `status` FROM `shippings` WHERE `transaction_evidence_id` = ?", transactionEvidence.ID)
-			if err == sql.ErrNoRows {
-				outputErrorMsg(w, http.StatusNotFound, "shipping not found")
-				tx.Rollback()
-				return
-			}
-			if err != nil {
-				log.Print(err)
-				outputErrorMsg(w, http.StatusInternalServerError, "db error")
-				tx.Rollback()
-				return
-			}
-			// ssr, err := APIShipmentStatus(getShipmentServiceURL(), &APIShipmentStatusReq{
-			// 	ReserveID: shipping.ReserveID,
-			// })
-			// if err != nil {
-			// 	log.Print(err)
-			// 	outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
-			// 	tx.Rollback()
-			// 	return
-			// }
+		// transactionEvidence := TransactionEvidence{}
+		// err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
+		// if err != nil && err != sql.ErrNoRows {
+		// 	// It's able to ignore ErrNoRows
+		// 	log.Print(err)
+		// 	outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		// 	tx.Rollback()
+		// 	return
+		// }
 
-			itemDetail.TransactionEvidenceID = transactionEvidence.ID
-			itemDetail.TransactionEvidenceStatus = transactionEvidence.Status
-			itemDetail.ShippingStatus = shipping.Status
-		}
+		// if transactionEvidence.ID > 0 {
+		// 	shipping := Shipping{}
+		// 	err = tx.Get(&shipping, "SELECT `status` FROM `shippings` WHERE `transaction_evidence_id` = ?", transactionEvidence.ID)
+		// 	if err == sql.ErrNoRows {
+		// 		outputErrorMsg(w, http.StatusNotFound, "shipping not found")
+		// 		tx.Rollback()
+		// 		return
+		// 	}
+		// 	if err != nil {
+		// 		log.Print(err)
+		// 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		// 		tx.Rollback()
+		// 		return
+		// 	}
+
+		// 	itemDetail.TransactionEvidenceID = transactionEvidence.ID
+		// 	itemDetail.TransactionEvidenceStatus = transactionEvidence.Status
+		// 	itemDetail.ShippingStatus = shipping.Status
+		// }
 
 		itemDetails = append(itemDetails, itemDetail)
 	}
@@ -1311,7 +1352,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	tx := dbx.MustBegin()
 	txErr := false
-	defer func(){
+	defer func() {
 		if txErr {
 			tx.Rollback()
 		} else {
@@ -1414,7 +1455,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func(){
+	go func() {
 		defer wg.Done()
 
 		scr, err := APIShipmentCreate(getShipmentServiceURL(), &APIShipmentCreateReq{
@@ -1427,7 +1468,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			log.Print(err)
 			outputErrorMsg(w, http.StatusInternalServerError, "failed to request to shipment service")
 			txErr = true
-	
+
 			return
 		}
 
@@ -1454,7 +1495,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	wg.Add(1)
-	go func(){
+	go func() {
 		defer wg.Done()
 		pstr, err := APIPaymentToken(getPaymentServiceURL(), &APIPaymentServiceTokenReq{
 			ShopID: PaymentServiceIsucariShopID,
@@ -1464,24 +1505,24 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			log.Print(err)
-	
+
 			outputErrorMsg(w, http.StatusInternalServerError, "payment service is failed")
 			txErr = true
 			return
 		}
-	
+
 		if pstr.Status == "invalid" {
 			outputErrorMsg(w, http.StatusBadRequest, "カード情報に誤りがあります")
 			txErr = true
 			return
 		}
-	
+
 		if pstr.Status == "fail" {
 			outputErrorMsg(w, http.StatusBadRequest, "カードの残高が足りません")
 			txErr = true
 			return
 		}
-	
+
 		if pstr.Status != "ok" {
 			outputErrorMsg(w, http.StatusBadRequest, "想定外のエラー")
 			txErr = true
