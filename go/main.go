@@ -2045,6 +2045,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	userSimpleMutex.Lock()
 	defer userSimpleMutex.Unlock()
 	tx := dbx.MustBegin()
+	userSimpleMutex.Lock()
 
 	seller := User{}
 	err = tx.Get(&seller, "SELECT `id`, `num_sell_items` FROM `users` WHERE `id` = ? FOR UPDATE", user.ID)
