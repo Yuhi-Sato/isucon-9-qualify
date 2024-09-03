@@ -69,6 +69,7 @@ var (
 	categoryCache   = make(map[int64]*Category)
 	userSimpleCache = make(map[int64]*UserSimple)
 	userSimpleMutex sync.RWMutex
+	postBuyMutexMap = make(map[int64]*sync.Mutex)
 )
 
 type Config struct {
@@ -1340,6 +1341,59 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	buyer, errCode, errMsg := getUser(r)
 	if errMsg != "" {
 		outputErrorMsg(w, errCode, errMsg)
+		return
+	}
+
+	i := Item{}
+	err = dbx.Get(&i, "SELECT * FROM `items` WHERE `id` = ?", rb.ItemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		return
+	}
+	if err != nil {
+		log.Print(err)
+
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if i.Status != ItemStatusOnSale {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
+		return
+	}
+
+	if i.SellerID == buyer.ID {
+		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
+		return
+	}
+
+	m, ok := postBuyMutexMap[rb.ItemID]
+	if !ok {
+		m = &sync.Mutex{}
+		postBuyMutexMap[rb.ItemID] = m
+	}
+	m.Lock()
+	defer m.Unlock()
+
+	err = dbx.Get(&i, "SELECT * FROM `items` WHERE `id` = ?", rb.ItemID)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "item not found")
+		return
+	}
+	if err != nil {
+		log.Print(err)
+
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if i.Status != ItemStatusOnSale {
+		outputErrorMsg(w, http.StatusForbidden, "item is not for sale")
+		return
+	}
+
+	if i.SellerID == buyer.ID {
+		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		return
 	}
 
