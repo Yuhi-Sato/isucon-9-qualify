@@ -290,7 +290,7 @@ func main() {
 		log.Fatal(http.ListenAndServe(":6060", nil))
 	}()
 
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1000
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 5000
 
 	host := os.Getenv("MYSQL_HOST")
 	if host == "" {
@@ -2101,7 +2101,7 @@ func postSell(w http.ResponseWriter, r *http.Request) {
 	tx := dbx.MustBegin()
 
 	seller := User{}
-	err = tx.Get(&seller, "SELECT `id`, `num_sell_items` FROM `users` WHERE `id` = ? FOR UPDATE", user.ID)
+	err = tx.Get(&seller, "SELECT `id`, `num_sell_items` FROM `users` WHERE `id` = ?", user.ID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		tx.Rollback()
