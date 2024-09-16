@@ -1584,6 +1584,20 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyer.ID,
+		ItemStatusTrading,
+		time.Now(),
+		targetItem.ID,
+	)
+	if err != nil {
+		log.Print(err)
+
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		txErr = true
+		return
+	}
+
 	wg.Wait()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
