@@ -70,6 +70,7 @@ var (
 	userSimpleCache = make(map[int64]*UserSimple)
 	userSimpleMutex sync.RWMutex
 	postBuyMutexMap = make(map[int64]*sync.Mutex)
+	configCache     = make(map[string]*Config)
 )
 
 type Config struct {
@@ -427,21 +428,18 @@ func getCategoryByID(categoryID int) (category Category, err error) {
 	return *categoryCache[int64(categoryID)], err
 }
 
-func getConfigByName(name string) (string, error) {
-	config := Config{}
-	err := dbx.Get(&config, "SELECT * FROM `configs` WHERE `name` = ?", name)
-	if err == sql.ErrNoRows {
-		return "", nil
+func getConfigByName(name string) string {
+	config := configCache[name]
+
+	if config.Name == "" {
+		return ""
 	}
-	if err != nil {
-		log.Print(err)
-		return "", err
-	}
-	return config.Val, err
+
+	return config.Val
 }
 
 func getPaymentServiceURL() string {
-	val, _ := getConfigByName("payment_service_url")
+	val := getConfigByName("payment_service_url")
 	if val == "" {
 		return DefaultPaymentServiceURL
 	}
@@ -449,7 +447,7 @@ func getPaymentServiceURL() string {
 }
 
 func getShipmentServiceURL() string {
-	val, _ := getConfigByName("shipment_service_url")
+	val := getConfigByName("shipment_service_url")
 	if val == "" {
 		return DefaultShipmentServiceURL
 	}
@@ -526,9 +524,18 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	configs := []*Config{}
+	err = dbx.Select(&configs, "SELECT * FROM `configs`")
+	if err != nil {
+		log.Print(err)
+	}
+	for _, c := range configs {
+		configCache[c.Name] = c
+	}
+
 	res := resInitialize{
 		// キャンペーン実施時には還元率の設定を返す。詳しくはマニュアルを参照のこと。
-		Campaign: 3,
+		Campaign: 4,
 		// 実装言語を返す
 		Language: "Go",
 	}
@@ -1375,7 +1382,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	m.Lock()
 	defer m.Unlock()
 
-	err = dbx.Get(&i, "SELECT * FROM `items` WHERE `id` = ?", rb.ItemID)
+	err = dbx.Get(&i, "SELECT `status` FROM `items` WHERE `id` = ?", rb.ItemID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "item not found")
 		return
@@ -1392,7 +1399,7 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if i.SellerID == buyer.ID {
+	if rb.ItemID == buyer.ID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
 		return
 	}
@@ -1430,6 +1437,20 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 
 	if targetItem.SellerID == buyer.ID {
 		outputErrorMsg(w, http.StatusForbidden, "自分の商品は買えません")
+		txErr = true
+		return
+	}
+
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyer.ID,
+		ItemStatusTrading,
+		time.Now(),
+		targetItem.ID,
+	)
+	if err != nil {
+		log.Print(err)
+
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		txErr = true
 		return
 	}
@@ -1478,20 +1499,6 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	transactionEvidenceID, err := result.LastInsertId()
-	if err != nil {
-		log.Print(err)
-
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		txErr = true
-		return
-	}
-
-	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
-		buyer.ID,
-		ItemStatusTrading,
-		time.Now(),
-		targetItem.ID,
-	)
 	if err != nil {
 		log.Print(err)
 
@@ -1576,6 +1583,20 @@ func postBuy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}()
+
+	_, err = tx.Exec("UPDATE `items` SET `buyer_id` = ?, `status` = ?, `updated_at` = ? WHERE `id` = ?",
+		buyer.ID,
+		ItemStatusTrading,
+		time.Now(),
+		targetItem.ID,
+	)
+	if err != nil {
+		log.Print(err)
+
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		txErr = true
+		return
+	}
 
 	wg.Wait()
 
@@ -2214,7 +2235,7 @@ func postBump(w http.ResponseWriter, r *http.Request) {
 	}
 
 	seller := User{}
-	err = tx.Get(&seller, "SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", user.ID)
+	err = tx.Get(&seller, "SELECT * FROM `users` WHERE `id` = ?", user.ID)
 	if err == sql.ErrNoRows {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		tx.Rollback()
@@ -2288,15 +2309,9 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 
 	ress.PaymentServiceURL = getPaymentServiceURL()
 
-	categories := []Category{}
-
-	err := dbx.Select(&categories, "SELECT * FROM `categories`")
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
+	for _, c := range categoryCache {
+		ress.Categories = append(ress.Categories, *c)
 	}
-	ress.Categories = categories
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(ress)
